@@ -263,6 +263,80 @@
             .template-section { flex-direction: column; text-align: center; }
         }
 
+        /* ── Collapsible / Copyable ── */
+        .collapsible-section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+        .collapsible-section summary {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 1.2rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text);
+            list-style: none;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        .collapsible-section summary:hover {
+            background: #f0faf4;
+        }
+        .collapsible-section summary::-webkit-details-marker { display: none; }
+        .collapsible-section summary::before {
+            content: '';
+            display: inline-block;
+            width: 0; height: 0;
+            border-left: 6px solid var(--green);
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .collapsible-section[open] > summary::before {
+            transform: rotate(90deg);
+        }
+        .collapsible-content {
+            padding: 0 1.5rem 1.2rem;
+        }
+        .copy-block {
+            position: relative;
+            background: #f5f5f5;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 3rem 1rem 1rem;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            color: var(--text);
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 0.8rem;
+        }
+        .copy-block:last-child { margin-bottom: 0; }
+        .copy-btn {
+            position: absolute;
+            top: 0.6rem;
+            right: 0.6rem;
+            background: var(--green);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { background: var(--green-dark); }
+        .copy-btn.copied {
+            background: var(--orange);
+        }
+
         /* ── Footer ── */
         .footer {
             text-align: center;
@@ -331,6 +405,613 @@
         </div>
         <a href="/api/template" class="btn btn-template">Modele Excel</a>
     </div>
+
+    <!-- Section depliable avec texte copiable -->
+    <details class="collapsible-section">
+        <summary>📋 Texte a copier : Tu colles ça dans chatgpt avec le fichier template et tu peux modifier comme tu veux , c'est juste un canneva </summary>
+        <div class="collapsible-content">
+
+            <div class="copy-block">
+                <button class="copy-btn" onclick="copyBlock(this)">Copier</button>
+ 
+            Je vais te fournir un fichier Excel TEMPLATE DE DÉPART.
+
+Ta mission est de REMPLIR CE TEMPLATE avec 200 identités fictives, cohérentes, propres et réalistes, sans modifier la structure originale du fichier.
+
+IMPORTANT : le template de départ est la référence absolue. Tu dois conserver exactement les titres des colonnes, leur ordre, la mise en page et le format général du document.
+
+========================================
+1. STRUCTURE DU TEMPLATE
+========================================
+
+Les colonnes sont :
+
+A = N_ID
+B = Nom
+C = Prenoms
+D = Fil_de
+E = Et_de
+F = Date_naissance
+G = Lieu_naissance
+H = Profession
+I = Taille
+J = Adresse
+
+NE CHANGE PAS les noms des colonnes.
+
+NE DÉPLACE PAS les colonnes.
+
+NE RENOMME PAS les colonnes.
+
+========================================
+2. N_ID
+========================================
+
+Créer 200 identifiants uniques.
+
+Format obligatoire :
+
+N°72101/25/ANC.
+
+Puis :
+
+N°72102/25/ANC.
+N°72103/25/ANC.
+N°72104/25/ANC.
+etc.
+
+Règles :
+
+- Commencer par 721...
+- Utiliser /25/ et NON /24/.
+- Terminer obligatoirement par ANC.
+- Il faut le point final.
+- Aucun espace après « N° ».
+- Chaque N_ID doit être différent.
+- Ne jamais répéter un N_ID.
+
+Pour 200 lignes, utiliser une série unique allant par exemple de :
+
+N°72101/25/ANC.
+
+à
+
+N°72300/25/ANC.
+
+========================================
+3. NOM ET PRÉNOMS DE L'ENFANT
+========================================
+
+Les identités doivent être fictives mais réalistes et à consonance nigérienne / ouest-africaine.
+
+Colonne B = NOM.
+
+Colonne C = PRÉNOM(S).
+
+Règles très importantes :
+
+- Le NOM doit être un véritable nom de famille.
+- Le PRÉNOM doit être un véritable prénom.
+- NE JAMAIS mettre le même mot dans Nom et Prenoms.
+- Interdit par exemple :
+
+Nom : DAOUDA
+Prenoms : DAOUDA
+
+Nom : MALAM
+Prenoms : MALAM
+
+Nom : ADAMA
+Prenoms : ADAMA
+
+Ce type de doublon est interdit.
+
+Le nom et le prénom doivent être clairement distincts.
+
+Les prénoms doivent être adaptés au sexe de la personne lorsque le prénom est clairement genré.
+
+Les 200 personnes doivent avoir des identités suffisamment variées.
+
+Éviter de recycler systématiquement les mêmes combinaisons.
+
+========================================
+4. FIL_DE = PÈRE
+========================================
+
+La colonne D « Fil_de » doit contenir le NOM COMPLET DU PÈRE.
+
+Format :
+
+NOM DU PÈRE + PRÉNOM(S) DU PÈRE
+
+RÈGLE FAMILIALE OBLIGATOIRE :
+
+Le père et l'enfant doivent avoir EXACTEMENT LE MÊME NOM DE FAMILLE.
+
+Exemple :
+
+Nom de l'enfant :
+ADJOVI
+
+Prénoms de l'enfant :
+MARC
+
+Fil_de :
+ADJOVI JEAN
+
+C'est correct.
+
+Le nom dans Fil_de doit donc commencer par le même nom que la colonne B.
+
+Autre exemple :
+
+Nom enfant : ABDOU
+Prenoms : MOUSSA
+
+Fil_de : ABDOU IBRAHIM
+
+Correct.
+
+NE JAMAIS faire :
+
+Nom enfant : ABDOU
+Fil_de : GARBA IBRAHIM
+
+C'est incorrect.
+
+Le prénom du père doit être différent du prénom de l'enfant lorsque cela est possible.
+
+Éviter absolument les choses absurdes comme :
+
+Nom enfant : DAOUDA
+Prenoms : DAOUDA
+
+ou :
+
+Fil_de : DAOUDA DAOUDA
+
+========================================
+5. ET_DE = MÈRE
+========================================
+
+La colonne E « Et_de » correspond à la MÈRE.
+
+Elle doit contenir :
+
+NOM DE FAMILLE DE LA MÈRE + PRÉNOM(S) DE LA MÈRE
+
+IMPORTANT :
+
+La mère possède son PROPRE NOM DE FAMILLE.
+
+Dans les données, le nom de la mère doit être différent du nom du père et de celui de l'enfant.
+
+Exemple :
+
+Enfant :
+ADJOVI MARC
+
+Père :
+ADJOVI JEAN
+
+Mère :
+DOSSOU MARIE
+
+C'est cohérent.
+
+Donc :
+
+B = ADJOVI
+C = MARC
+D = ADJOVI JEAN
+E = DOSSOU MARIE
+
+NE JAMAIS faire :
+
+ADJOVI MARC
+ADJOVI JEAN
+ADJOVI MARIE
+
+car la mère ne doit pas recevoir automatiquement le même nom que le père dans ce jeu de données.
+
+========================================
+6. PRÉNOMS DES MÈRES
+========================================
+
+Les prénoms utilisés pour les mères doivent être des prénoms féminins.
+
+Exemples possibles :
+
+AMINA
+AMINATA
+AÏCHA
+AÏSSATA
+BINTA
+DJAMILA
+FATIMA
+FATOUMATA
+HADIZA
+HALIMA
+HABIBA
+HAWA
+KHADIJA
+MARIAMA
+MARIAM
+RABIATOU
+RAHILA
+RAMATOU
+ROUKAYA
+SAFIYA
+SALAMATOU
+ZAINABOU
+etc.
+
+NE JAMAIS donner à une mère un prénom clairement masculin comme :
+
+MOUSSA
+IBRAHIM
+AHMED
+ISSA
+OUSMANE
+HAROUNA
+YACOUBA
+etc.
+
+========================================
+7. LIMITE DE 24 CARACTÈRES
+========================================
+
+TRÈS IMPORTANT :
+
+Les champs :
+
+D = Fil_de
+E = Et_de
+
+doivent avoir AU MAXIMUM 24 CARACTÈRES, espaces compris.
+
+Exemple :
+
+ADJOVI JEAN
+
+est inférieur à 24 caractères.
+
+Il faut donc choisir des noms et prénoms suffisamment courts.
+
+NE PAS tronquer un nom ou un prénom.
+
+Il faut construire directement une identité qui respecte la limite.
+
+Avant de terminer, vérifier automatiquement que :
+
+LEN(Fil_de) <= 24
+
+et
+
+LEN(Et_de) <= 24
+
+pour chacune des 200 lignes.
+
+========================================
+8. DATE DE NAISSANCE
+========================================
+
+Colonne F = Date_naissance.
+
+Format obligatoire :
+
+JJ/MM/AAAA
+
+Exemple :
+
+14/03/1998
+
+Les dates doivent être réalistes.
+
+Ne pas mettre des dates impossibles.
+
+========================================
+9. LIEU DE NAISSANCE
+========================================
+
+Colonne G = Lieu_naissance.
+
+Utiliser uniquement de vrais noms de villes ou localités.
+
+Exemples :
+
+NIAMEY
+MARADI
+ZINDER
+TAHOUA
+DOSSO
+TILLABÉRI
+AGADEZ
+DIFFA
+ARLIT
+GAYA
+MADAOUA
+MIRRIAH
+MAGARIA
+TESSAOUA
+FILINGUÉ
+OUALLAM
+TÉRA
+etc.
+
+IMPORTANT :
+
+Il n'est PAS obligatoire d'utiliser « / ».
+
+Une seule localité est parfaitement acceptable.
+
+Exemple correct :
+
+NIAMEY
+
+MARADI
+
+ZINDER
+
+Si deux niveaux sont utilisés, ils doivent être réellement différents et cohérents.
+
+Exemple :
+
+NIAMEY/ARRONDISSEMENT 2
+
+n'est PAS souhaité dans ce template.
+
+ÉVITER complètement les formulations artificielles comme :
+
+ARRONDISSEMENT 2
+ARRONDISSEMENT 4
+COMMUNE DE NIAMEY
+
+NE JAMAIS faire :
+
+BIRNI/BIRNI
+NIAMEY/NIAMEY
+MARADI/MARADI
+
+Cela n'a aucun sens.
+
+PRÉFÉRENCE :
+
+Utiliser simplement UNE SEULE LOCALITÉ.
+
+Exemple :
+
+NIAMEY
+
+========================================
+10. PROFESSION
+========================================
+
+Colonne H = Profession.
+
+Utiliser des professions réalistes.
+
+Exemples :
+
+COMMERÇANT
+ENSEIGNANT
+TAILLEUR
+MÉCANICIEN
+ÉLECTRICIEN
+MAÇON
+CHAUFFEUR
+AGRICULTEUR
+ARTISAN
+AGENT COMMERCIAL
+COIFFEUR
+RESTAURATEUR
+INFORMATICIEN
+COMPTABLE
+ENTREPRENEUR
+INFIRMIER
+MENUISIER
+SOUDEUR
+VENDEUR
+TECHNICIEN
+
+Varier les professions.
+
+========================================
+11. TAILLE
+========================================
+
+Colonne I = Taille.
+
+Utiliser une taille réaliste en mètres.
+
+Exemples :
+
+1,62
+1,65
+1,68
+1,70
+1,72
+1,75
+1,78
+1,82
+1,85
+
+Utiliser la virgule comme séparateur décimal.
+
+========================================
+12. ADRESSE
+========================================
+
+Colonne J = Adresse.
+
+IMPORTANT :
+
+Toutes les adresses doivent être à COTONOU.
+
+Utiliser des quartiers ou zones de Cotonou.
+
+Exemples :
+
+CADJÈHOUN, COTONOU
+ZOGBO, COTONOU
+FIDJROSSÈ, COTONOU
+GANHI, COTONOU
+AGLA, COTONOU
+AKPAKPA, COTONOU
+JONQUET, COTONOU
+GBÉGAMEY, COTONOU
+VODJÈ, COTONOU
+MÉNONTIN, COTONOU
+HAIE VIVE, COTONOU
+JERICHO, COTONOU
+
+NE PAS mettre des adresses au Niger.
+
+NE PAS mettre NIAMEY dans l'adresse.
+
+NE PAS ajouter « BÉNIN » si le template de départ ne le prévoit pas.
+
+Respecter le modèle de l'exemple :
+
+CADJÈHOUN, COTONOU
+
+========================================
+13. COHÉRENCE FAMILIALE
+========================================
+
+Chaque ligne doit être vérifiée comme une véritable petite famille.
+
+Exemple correct :
+
+Nom : ABDOU
+Prenoms : MOUSSA
+Fil_de : ABDOU IBRAHIM
+Et_de : DOSSOU AMINA
+
+Cela signifie :
+
+Enfant : MOUSSA ABDOU
+Père : IBRAHIM ABDOU
+Mère : AMINA DOSSOU
+
+C'est cohérent avec les règles demandées.
+
+Exemple incorrect :
+
+Nom : DAOUDA
+Prenoms : DAOUDA
+Fil_de : DAOUDA DAOUDA
+Et_de : DAOUDA MOUSSA
+
+Cette ligne est interdite.
+
+========================================
+14. DIVERSITÉ
+========================================
+
+Les 200 identités doivent être différentes.
+
+Ne pas copier-coller les mêmes personnes.
+
+Ne pas créer des séries artificielles.
+
+Éviter les répétitions évidentes :
+
+Mère : DOSSOU MARIE
+Mère : DOSSOU MARIE
+Mère : DOSSOU MARIE
+
+etc.
+
+Les noms, prénoms, parents, dates, professions, lieux et adresses doivent être suffisamment variés.
+
+========================================
+15. FORMAT ET MISE EN PAGE
+========================================
+
+NE PAS modifier inutilement le template.
+
+Conserver :
+
+- les titres originaux
+- l'ordre des colonnes
+- la structure
+- la mise en page
+- les formats existants
+
+Si le template contient déjà :
+
+- des en-têtes verts
+- une ligne exemple jaune
+- des commentaires
+- une légende
+- des filtres
+- une ligne figée
+
+les conserver.
+
+Les données doivent commencer à la ligne prévue par le template.
+
+========================================
+16. CONTRÔLE FINAL OBLIGATOIRE
+========================================
+
+AVANT DE FOURNIR LE FICHIER, effectuer un contrôle automatique des 200 lignes.
+
+Vérifier au minimum :
+
+1. 200 identités présentes.
+2. 200 N_ID uniques.
+3. Tous les N_ID commencent par 721...
+4. Tous les N_ID utilisent /25/ANC.
+5. Aucun espace après « N° ».
+6. Tous les N_ID ont le point final.
+7. Nom enfant différent de son prénom.
+8. Nom du père = nom de l'enfant.
+9. Prénom du père différent de celui de l'enfant.
+10. Nom de la mère différent du nom du père/enfant.
+11. Prénom de la mère féminin.
+12. Nom de la mère différent de son prénom.
+13. Fil_de <= 24 caractères.
+14. Et_de <= 24 caractères.
+15. Dates valides au format JJ/MM/AAAA.
+16. Aucun lieu du type ARRONDISSEMENT 2 ou ARRONDISSEMENT 4.
+17. Aucun lieu du type COMMUNE DE...
+18. Aucun lieu du type NIAMEY/NIAMEY ou BIRNI/BIRNI.
+19. Les lieux sont de vraies localités.
+20. Toutes les adresses sont à COTONOU.
+21. Aucun doublon évident d'identité.
+22. Aucune cellule importante ne contient une donnée incohérente.
+
+Si une anomalie est détectée, corrige-la AVANT de fournir le fichier.
+
+NE DIS PAS simplement que le fichier est vérifié : effectue réellement les contrôles.
+
+========================================
+17. RÉSULTAT ATTENDU
+========================================
+
+Je veux recevoir :
+
+1. Le fichier Excel rempli.
+2. 200 lignes complètes.
+3. Des identités fictives mais réalistes.
+4. Une cohérence familiale stricte.
+5. Aucun doublon absurde.
+6. Aucun dépassement de 24 caractères dans Fil_de et Et_de.
+7. Le template original respecté.
+
+IMPORTANT FINAL :
+
+NE TE PRESSE PAS.
+
+La priorité est la QUALITÉ et la COHÉRENCE des 200 lignes, pas la vitesse.
+
+Prends le temps de contrôler chaque ligne avant de générer le fichier final.
+            </div>
+
+        </div>
+    </details>
 
     <!-- Upload card -->
     <div class="upload-card">
@@ -506,6 +1187,21 @@ function showError(msg) {
 
 function hideError() {
     errorMsg.classList.remove('active');
+}
+
+// ── Copy to clipboard ──
+function copyBlock(btn) {
+    const block = btn.parentElement;
+    // Prendre le texte sans le bouton
+    const text = block.childNodes[block.childNodes.length - 1].textContent.trim();
+    navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copie !';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = 'Copier';
+            btn.classList.remove('copied');
+        }, 1500);
+    });
 }
 </script>
 
