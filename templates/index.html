@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartes d'Immatriculation - Ambassade du Niger</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #E05206;
+            --green: #0D8549;
+            --green-dark: #0a6b3a;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --text-light: #666666;
+            --border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 6px;
+            background: var(--orange);
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        .flag-bar {
+            display: flex;
+            height: 4px;
+        }
+        .flag-bar span { flex: 1; }
+        .flag-bar .f-orange { background: #E05206; }
+        .flag-bar .f-white  { background: #FFFFFF; }
+        .flag-bar .f-green  { background: #0D8549; }
+
+        /* ── Main ── */
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        /* ── Upload Card ── */
+        .upload-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 2.5rem 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .drop-zone {
+            border: 2.5px dashed var(--border);
+            border-radius: 12px;
+            padding: 3rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--green);
+            background: #f0faf4;
+        }
+        .drop-zone.has-file {
+            border-color: var(--green);
+            border-style: solid;
+            background: #f0faf4;
+        }
+
+        .drop-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .drop-zone h3 {
+            font-size: 1.15rem;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        .drop-zone p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+        .file-name {
+            font-weight: 600;
+            color: var(--green);
+            font-size: 1.05rem;
+            margin-top: 0.5rem;
+        }
+
+        .file-input { display: none; }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: var(--green);
+            color: white;
+            margin-top: 1.5rem;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--green-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(13,133,73,0.3);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--green);
+            border: 2px solid var(--green);
+            margin-top: 0.8rem;
+        }
+        .btn-secondary:hover {
+            background: #f0faf4;
+        }
+
+        .btn-template {
+            background: var(--orange);
+            color: white;
+            margin-top: 0;
+            font-size: 0.95rem;
+            padding: 0.7rem 1.5rem;
+        }
+        .btn-template:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* ── Progress ── */
+        .progress-section {
+            display: none;
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        .progress-section.active { display: block; }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .progress-text {
+            font-size: 1rem;
+            color: var(--text-light);
+        }
+
+        /* ── Result ── */
+        .result-section {
+            display: none;
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        .result-section.active { display: block; }
+
+        .success-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+        .result-info {
+            font-size: 1rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+        .result-info strong { color: var(--green); }
+
+        /* ── Error ── */
+        .error-msg {
+            display: none;
+            background: #fef2f2;
+            color: #b91c1c;
+            padding: 1rem 1.2rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            border-left: 4px solid #dc2626;
+        }
+        .error-msg.active { display: block; }
+
+        /* ── Info Cards ── */
+        .info-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 500px) {
+            .info-cards { grid-template-columns: 1fr; }
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.2rem;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+        }
+        .info-card .ic-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+        .info-card h4 { font-size: 0.95rem; margin-bottom: 0.3rem; }
+        .info-card p { font-size: 0.82rem; color: var(--text-light); line-height: 1.4; }
+
+        /* ── Template section ── */
+        .template-section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .template-text h3 { font-size: 1rem; margin-bottom: 0.2rem; }
+        .template-text p { font-size: 0.85rem; color: var(--text-light); }
+
+        @media (max-width: 500px) {
+            .template-section { flex-direction: column; text-align: center; }
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-light);
+            font-size: 0.82rem;
+        }
+        .footer a { color: var(--green); text-decoration: none; }
+
+        /* ── Rules reminder ── */
+        .rules {
+            background: #fffbeb;
+            border-radius: 12px;
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--orange);
+        }
+        .rules h4 { color: var(--orange); margin-bottom: 0.5rem; font-size: 0.95rem; }
+        .rules ul { list-style: none; padding: 0; }
+        .rules li {
+            font-size: 0.85rem;
+            padding: 0.2rem 0;
+            color: var(--text-light);
+        }
+        .rules li::before {
+            content: '>';
+            color: var(--orange);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Cartes d'Immatriculation</h1>
+    <p>Ambassade du Niger a Cotonou</p>
+</div>
+<div class="flag-bar">
+    <span class="f-orange"></span>
+    <span class="f-white"></span>
+    <span class="f-green"></span>
+</div>
+
+<div class="container">
+
+    <!-- Info cards -->
+    <div class="info-cards">
+        <div class="info-card">
+            <div class="ic-icon">📄</div>
+            <h4>6 cartes par page</h4>
+            <p>4 a gauche + 2 a droite, format A4</p>
+        </div>
+        <div class="info-card">
+            <div class="ic-icon">✏️</div>
+            <h4>Texte editable</h4>
+            <p>Modifiable directement dans Word</p>
+        </div>
+    </div>
+
+    <!-- Template download -->
+    <div class="template-section">
+        <div class="template-text">
+            <h3>Pas encore de fichier Excel ?</h3>
+            <p>Telecharge le modele et remplis-le</p>
+        </div>
+        <a href="/api/template" class="btn btn-template">Telecharger le modele</a>
+    </div>
+
+    <!-- Rules reminder -->
+    <div class="rules">
+        <h4>Rappel des regles</h4>
+        <ul>
+            <li>N° d'immatriculation : N°50187/24/ANC. (colle, avec point)</li>
+            <li>Adresse : juste CADJEHOUN, COTONOU (pas de QUARTIER ni BENIN)</li>
+            <li>Noms des parents : 24 caracteres maximum</li>
+            <li>Tout en MAJUSCULES (sauf date et taille)</li>
+        </ul>
+    </div>
+
+    <!-- Upload card -->
+    <div class="upload-card">
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">📁</div>
+            <h3>Depose ton fichier Excel ici</h3>
+            <p>ou clique pour le selectionner</p>
+            <div class="file-name" id="fileName" hidden></div>
+        </div>
+        <input type="file" class="file-input" id="fileInput" accept=".xlsx,.xls">
+
+        <button class="btn btn-primary" id="generateBtn" disabled>
+            Generer les cartes
+        </button>
+
+        <button class="btn btn-secondary" id="resetBtn" hidden>
+            Nouveau fichier
+        </button>
+
+        <!-- Progress -->
+        <div class="progress-section" id="progressSection">
+            <div class="spinner"></div>
+            <p class="progress-text">Generation en cours...</p>
+        </div>
+
+        <!-- Result -->
+        <div class="result-section" id="resultSection">
+            <div class="success-icon">✅</div>
+            <p class="result-info" id="resultInfo"></p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+</div>
+
+<div class="footer">
+    <p>Ambassade du Niger a Cotonou &middot; Systeme de cartes d'immatriculation</p>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const generateBtn = document.getElementById('generateBtn');
+const resetBtn = document.getElementById('resetBtn');
+const progressSection = document.getElementById('progressSection');
+const resultSection = document.getElementById('resultSection');
+const resultInfo = document.getElementById('resultInfo');
+const errorMsg = document.getElementById('errorMsg');
+
+let selectedFile = null;
+
+// ── Drag & Drop ──
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) handleFile(files[0]);
+});
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+    if (!file.name.match(/\.xlsx?$/i)) {
+        showError("Le fichier doit etre au format Excel (.xlsx)");
+        return;
+    }
+    selectedFile = file;
+    dropZone.classList.add('has-file');
+    dropZone.querySelector('.drop-icon').textContent = '📊';
+    dropZone.querySelector('h3').textContent = file.name;
+    dropZone.querySelector('p').textContent =
+        (file.size / 1024).toFixed(0) + ' Ko';
+    fileName.hidden = true;
+    generateBtn.disabled = false;
+    hideError();
+    resultSection.classList.remove('active');
+}
+
+// ── Generate ──
+generateBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    generateBtn.disabled = true;
+    generateBtn.hidden = true;
+    resetBtn.hidden = true;
+    progressSection.classList.add('active');
+    resultSection.classList.remove('active');
+    hideError();
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "Erreur inconnue");
+        }
+
+        // Telecharger le fichier
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+
+        // Extraire le nom du fichier du header
+        const disposition = response.headers.get('Content-Disposition');
+        let downloadName = selectedFile.name.replace(/\.xlsx?$/i, '') + '_cartes_remplies.docx';
+        if (disposition) {
+            const match = disposition.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+            if (match) downloadName = decodeURIComponent(match[1].replace(/"/g, ''));
+        }
+
+        a.href = url;
+        a.download = downloadName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Afficher le succes
+        progressSection.classList.remove('active');
+        resultSection.classList.add('active');
+        resultInfo.innerHTML =
+            'Document <strong>' + downloadName + '</strong> telecharge !<br>' +
+            'Ouvre-le avec <strong>Word</strong> (pas OneDrive).';
+        resetBtn.hidden = false;
+
+    } catch (err) {
+        progressSection.classList.remove('active');
+        showError(err.message);
+        generateBtn.disabled = false;
+        generateBtn.hidden = false;
+    }
+});
+
+// ── Reset ──
+resetBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    dropZone.classList.remove('has-file');
+    dropZone.querySelector('.drop-icon').textContent = '📁';
+    dropZone.querySelector('h3').textContent = 'Depose ton fichier Excel ici';
+    dropZone.querySelector('p').textContent = 'ou clique pour le selectionner';
+    generateBtn.disabled = true;
+    generateBtn.hidden = false;
+    resetBtn.hidden = true;
+    resultSection.classList.remove('active');
+    hideError();
+});
+
+function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('active');
+}
+
+function hideError() {
+    errorMsg.classList.remove('active');
+}
+</script>
+
+</body>
+</html>
