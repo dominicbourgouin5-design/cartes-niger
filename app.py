@@ -97,6 +97,25 @@ def px_to_cm_y(px):
     return px * CARD_H_CM / IMG_H_PX
 
 
+def _format_date(val):
+    """Formate une date Excel en JJ/MM/AAAA (gere datetime et texte)."""
+    from datetime import datetime, date
+    if isinstance(val, (datetime, date)):
+        return val.strftime("%d/%m/%Y")
+    s = str(val).strip()
+    # Si c'est du type "1979-10-01 00:00:00", on coupe le temps
+    if " 00:00:00" in s:
+        s = s.replace(" 00:00:00", "")
+    # Si c'est ISO "1979-10-01", convertir en JJ/MM/AAAA
+    if len(s) == 10 and s[4] == '-' and s[7] == '-':
+        try:
+            d = datetime.strptime(s, "%Y-%m-%d")
+            return d.strftime("%d/%m/%Y")
+        except ValueError:
+            pass
+    return s
+
+
 def lire_excel(excel_file):
     """Lit le fichier Excel et retourne la liste des personnes."""
     wb = openpyxl.load_workbook(excel_file)
@@ -127,7 +146,7 @@ def lire_excel(excel_file):
                 "Prenoms":    str(r[2]).strip().upper() if len(r) > 2 and r[2] else "",
                 "Fil_de":     str(r[3]).strip().upper() if len(r) > 3 and r[3] else "",
                 "Et_de":      str(r[4]).strip().upper() if len(r) > 4 and r[4] else "",
-                "Date":       str(r[5]).strip() if len(r) > 5 and r[5] else "",
+                "Date":       _format_date(r[5]) if len(r) > 5 and r[5] else "",
                 "Lieu":       str(r[6]).strip().upper() if len(r) > 6 and r[6] else "",
                 "Profession": str(r[7]).strip().upper() if len(r) > 7 and r[7] else "",
                 "Taille":     str(r[8]).strip() if len(r) > 8 and r[8] else "",
