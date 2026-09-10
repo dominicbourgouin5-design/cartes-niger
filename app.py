@@ -8,6 +8,9 @@ import math
 import uuid
 import time
 import threading
+import zipfile
+import tempfile
+import shutil
 from copy import deepcopy
 from io import BytesIO
 
@@ -19,6 +22,7 @@ from docx.shared import Cm, Pt
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from lxml import etree
+from fontTools.ttLib import TTFont
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max upload
@@ -29,6 +33,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Image de fond incluse dans l'app
 BG_IMAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "carte_fond.png")
+
+# Police Kingthings Trypewriter 2
+FONT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "KingthingsTrypewriter2.ttf")
 
 # ── Configuration des cartes ──────────────────────────────────────────────────
 
@@ -297,6 +304,176 @@ def make_vml_textbox_run_rotated(text, target_x, target_y,
     return etree.fromstring(xml)
 
 
+def embed_font_in_docx(docx_bytes, font_path, font_name):
+    """
+    Embarque la police TrueType dans le fichier .docx pour qu'elle
+    s'affiche correctement meme si le PC n'a pas la police installee.
+
+    Technique : on manipule le package ZIP du .docx pour ajouter :
+    - Le fichier .ttf dans word/fonts/
+    - La declaration dans word/fontTable.xml
+    - La relation dans word/_rels/fontTable.xml.rels
+    - Le content type dans [Content_Types].xml
+    """
+    # Lire les metriques de la police
+    tt = TTFont(font_path)
+    os2 = tt['OS/2']
+    panose_bytes = bytes([
+        os2.panose.bFamilyType, os2.panose.bSerifStyle,
+        os2.panose.bWeight, os2.panose.bProportion,
+        os2.panose.bContrast, os2.panose.bStrokeVariation,
+        os2.panose.bArmStyle, os2.panose.bLetterForm,
+        os2.panose.bMidline, os2.panose.bXHeight
+    ])
+    panose_hex = panose_bytes.hex().upper()
+    # Formater: "02 0B 06 03 ..." -> "020B0603..."
+    panose_str = panose_hex
+
+    # Obfuscation de la police (Word exige un GUID + obfuscation XOR)
+    import hashlib
+    font_guid = str(uuid.uuid4()).upper()
+    # Cle d'obfuscation = 16 bytes du GUID (sans les tirets)
+    guid_hex = font_guid.replace("-", "")
+    obfuscation_key = bytes.fromhex(guid_hex)
+
+    # Lire le fichier ttf
+    with open(font_path, "rb") as f:
+        font_data = bytearray(f.read())
+
+    # Obfusquer les 32 premiers octets avec la cle (2x16)
+    obfuscated = bytearray(font_data)
+    for i in range(32):
+        obfuscated[i] ^= obfuscation_key[i % 16]
+
+    # Nom du fichier embarque
+    odttf_name = f"{{{font_guid}}}.odttf"
+
+    # Manipuler le ZIP
+    src = BytesIO(docx_bytes)
+    dst = BytesIO()
+
+    with zipfile.ZipFile(src, 'r') as zin, zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zout:
+        # Copier tous les fichiers existants sauf ceux qu'on va modifier
+        modified_files = {'word/fontTable.xml', '[Content_Types].xml'}
+
+        # Verifier si word/_rels/fontTable.xml.rels existe deja
+        existing_names = set(zin.namelist())
+        has_font_rels = 'word/_rels/fontTable.xml.rels' in existing_names
+        if has_font_rels:
+            modified_files.add('word/_rels/fontTable.xml.rels')
+
+        for item in zin.namelist():
+            if item not in modified_files:
+                zout.writestr(item, zin.read(item))
+
+        # 1. Ajouter le fichier police obfusque
+        zout.writestr(f"word/fonts/{odttf_name}", bytes(obfuscated))
+
+        # 2. Modifier fontTable.xml pour declarer la police embarquee
+        ft_xml = zin.read('word/fontTable.xml')
+        ft_tree = etree.fromstring(ft_xml)
+        w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+        # Trouver ou creer l'element w:font pour notre police
+        font_elem = None
+        for f in ft_tree.findall(f'{{{w_ns}}}font'):
+            if f.get(f'{{{w_ns}}}name') == font_name:
+                font_elem = f
+                break
+
+        if font_elem is None:
+            font_elem = etree.SubElement(ft_tree, f'{{{w_ns}}}font')
+            font_elem.set(f'{{{w_ns}}}name', font_name)
+
+        # Ajouter les infos de la police
+        # Panose
+        existing_panose = font_elem.find(f'{{{w_ns}}}panose1')
+        if existing_panose is None:
+            panose_el = etree.SubElement(font_elem, f'{{{w_ns}}}panose1')
+        else:
+            panose_el = existing_panose
+        panose_el.set(f'{{{w_ns}}}val', panose_str)
+
+        # Charset
+        existing_charset = font_elem.find(f'{{{w_ns}}}charset')
+        if existing_charset is None:
+            charset_el = etree.SubElement(font_elem, f'{{{w_ns}}}charset')
+        else:
+            charset_el = existing_charset
+        charset_el.set(f'{{{w_ns}}}val', '00')
+
+        # Family
+        existing_family = font_elem.find(f'{{{w_ns}}}family')
+        if existing_family is None:
+            family_el = etree.SubElement(font_elem, f'{{{w_ns}}}family')
+        else:
+            family_el = existing_family
+        family_el.set(f'{{{w_ns}}}val', 'auto')
+
+        # Pitch
+        existing_pitch = font_elem.find(f'{{{w_ns}}}pitch')
+        if existing_pitch is None:
+            pitch_el = etree.SubElement(font_elem, f'{{{w_ns}}}pitch')
+        else:
+            pitch_el = existing_pitch
+        pitch_el.set(f'{{{w_ns}}}val', 'variable')
+
+        # Embed Regular
+        existing_embed = font_elem.find(f'{{{w_ns}}}embedRegular')
+        if existing_embed is None:
+            embed_el = etree.SubElement(font_elem, f'{{{w_ns}}}embedRegular')
+        else:
+            embed_el = existing_embed
+        embed_el.set(f'{{{r_ns}}}id', 'rIdFont1')
+        embed_el.set(f'{{{w_ns}}}fontKey', f'{{{font_guid}}}')
+
+        ft_out = etree.tostring(ft_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
+        zout.writestr('word/fontTable.xml', ft_out)
+
+        # 3. Creer/modifier word/_rels/fontTable.xml.rels
+        if has_font_rels:
+            rels_xml = zin.read('word/_rels/fontTable.xml.rels')
+            rels_tree = etree.fromstring(rels_xml)
+        else:
+            rels_ns = "http://schemas.openxmlformats.org/package/2006/relationships"
+            rels_tree = etree.Element(f'{{{rels_ns}}}Relationships')
+            rels_tree.set('xmlns', rels_ns)
+
+        # Ajouter la relation vers le fichier police
+        rels_ns_str = "http://schemas.openxmlformats.org/package/2006/relationships"
+        rel_el = etree.SubElement(rels_tree, f'{{{rels_ns_str}}}Relationship')
+        rel_el.set('Id', 'rIdFont1')
+        rel_el.set('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/font')
+        rel_el.set('Target', f'fonts/{odttf_name}')
+
+        rels_out = etree.tostring(rels_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
+        zout.writestr('word/_rels/fontTable.xml.rels', rels_out)
+
+        # 4. Modifier [Content_Types].xml pour ajouter le type odttf
+        ct_xml = zin.read('[Content_Types].xml')
+        ct_tree = etree.fromstring(ct_xml)
+        ct_ns = "http://schemas.openxmlformats.org/package/2006/content-types"
+
+        # Verifier si l'extension odttf est deja declaree
+        has_odttf = False
+        for ext in ct_tree.findall(f'{{{ct_ns}}}Default'):
+            if ext.get('Extension') == 'odttf':
+                has_odttf = True
+                break
+
+        if not has_odttf:
+            default_el = etree.SubElement(ct_tree, f'{{{ct_ns}}}Default')
+            default_el.set('Extension', 'odttf')
+            default_el.set('ContentType', 'application/vnd.openxmlformats-officedocument.obfuscatedFont')
+
+        ct_out = etree.tostring(ct_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
+        zout.writestr('[Content_Types].xml', ct_out)
+
+    dst.seek(0)
+    return dst.getvalue()
+
+
 def generer_cartes(excel_file):
     """Genere le document Word a partir du fichier Excel uploade."""
     # Preparer les images de fond
@@ -423,14 +600,24 @@ def generer_cartes(excel_file):
     # Sauvegarder dans un buffer
     output = BytesIO()
     doc.save(output)
-    output.seek(0)
+    docx_bytes = output.getvalue()
+
+    # Embarquer la police dans le document Word
+    if os.path.exists(FONT_FILE):
+        try:
+            docx_bytes = embed_font_in_docx(docx_bytes, FONT_FILE, FONT_NAME)
+        except Exception as e:
+            print(f"Avertissement: impossible d'embarquer la police: {e}")
+
+    result = BytesIO(docx_bytes)
+    result.seek(0)
 
     # Nettoyage des fichiers temporaires
     for tmp in (card_path, card_rot_path):
         if os.path.exists(tmp):
             os.remove(tmp)
 
-    return output, len(persons), pages_needed
+    return result, len(persons), pages_needed
 
 
 # ── Nettoyage automatique des fichiers temporaires ───────────────────────────
@@ -509,6 +696,15 @@ def download_template():
         return send_file(template_path, as_attachment=True,
                          download_name="Template_Immatriculation_Niger.xlsx")
     return jsonify({"error": "Template non disponible"}), 404
+
+
+@app.route("/api/font")
+def download_font():
+    """Telecharger la police Kingthings Trypewriter 2."""
+    if os.path.exists(FONT_FILE):
+        return send_file(FONT_FILE, as_attachment=True,
+                         download_name="KingthingsTrypewriter2.ttf")
+    return jsonify({"error": "Police non disponible"}), 404
 
 
 if __name__ == "__main__":

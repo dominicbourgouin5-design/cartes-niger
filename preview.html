@@ -1,0 +1,519 @@
+<title>Cartes Niger</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --orange: #D94E1F;
+    --orange-light: #F2E0D6;
+    --green: #1B7A4A;
+    --green-deep: #145C38;
+    --green-tint: #E8F5EE;
+    --surface: #FAFAF8;
+    --card: #FFFFFF;
+    --text: #1A1A18;
+    --text-mid: #4A4A46;
+    --text-muted: #7A7A74;
+    --border: #E2E0DB;
+    --border-light: #EEECE8;
+    --shadow: rgba(26, 26, 24, 0.06);
+    --shadow-lift: rgba(26, 26, 24, 0.12);
+    --error-bg: #FEF0EE;
+    --error-text: #9B2C1E;
+    --error-border: #E8B4AC;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --surface: #141413;
+      --card: #1E1E1C;
+      --text: #EAEAE6;
+      --text-mid: #B0B0AA;
+      --text-muted: #7A7A74;
+      --border: #2E2E2A;
+      --border-light: #252524;
+      --shadow: rgba(0, 0, 0, 0.2);
+      --shadow-lift: rgba(0, 0, 0, 0.35);
+      --orange-light: #2A1E17;
+      --green-tint: #142118;
+      --error-bg: #2A1814;
+      --error-text: #F0A89C;
+      --error-border: #5C2E24;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --surface: #141413;
+    --card: #1E1E1C;
+    --text: #EAEAE6;
+    --text-mid: #B0B0AA;
+    --text-muted: #7A7A74;
+    --border: #2E2E2A;
+    --border-light: #252524;
+    --shadow: rgba(0, 0, 0, 0.2);
+    --shadow-lift: rgba(0, 0, 0, 0.35);
+    --orange-light: #2A1E17;
+    --green-tint: #142118;
+    --error-bg: #2A1814;
+    --error-text: #F0A89C;
+    --error-border: #5C2E24;
+  }
+
+  body {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--text);
+    padding-inline: 16px;
+    padding-block: 0;
+  }
+
+  .top-stripe {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    display: flex;
+    z-index: 100;
+  }
+  .top-stripe span { flex: 1; }
+  .ts-o { background: var(--orange); }
+  .ts-w { background: #FFFFFF; }
+  .ts-g { background: var(--green); }
+
+  .page { max-width: 640px; margin: 0 auto; padding-top: 4px; }
+
+  /* ── Header ── */
+  .hdr {
+    padding: 2.5rem 0 1.8rem;
+    text-align: center;
+  }
+  .hdr-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green-tint);
+    color: var(--green);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+  }
+  .hdr h1 {
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-wrap: balance;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+  }
+  .hdr p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Stat pills ── */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--card);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    color: var(--text-mid);
+  }
+  .stat strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ── Upload zone ── */
+  .upload-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2rem;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 1px 4px var(--shadow);
+  }
+
+  .drop {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .drop:hover, .drop.over {
+    border-color: var(--green);
+    background: var(--green-tint);
+  }
+  .drop.loaded {
+    border-color: var(--green);
+    border-style: solid;
+    background: var(--green-tint);
+  }
+  .drop-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 0.8rem;
+    border-radius: 12px;
+    background: var(--green-tint);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+  }
+  .drop.loaded .drop-icon { background: var(--green); }
+  .drop.loaded .drop-icon svg path { stroke: #fff; }
+  .drop h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .drop p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .drop .fname {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--green);
+    margin-top: 0.3rem;
+  }
+
+  .actions { margin-top: 1.2rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn-go {
+    background: var(--green);
+    color: #fff;
+  }
+  .btn-go:hover:not(:disabled) {
+    background: var(--green-deep);
+    box-shadow: 0 3px 10px rgba(27,122,74,0.25);
+  }
+  .btn-go:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--green);
+    border: 1.5px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--green); background: var(--green-tint); }
+
+  /* ── Progress ── */
+  .prog { display: none; text-align: center; padding: 1.5rem 0 0.5rem; }
+  .prog.on { display: block; }
+  .prog-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 0.8rem;
+  }
+  .prog-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    animation: load 1.8s ease-in-out infinite;
+    width: 40%;
+  }
+  @keyframes load {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  .prog p { font-size: 0.9rem; color: var(--text-muted); }
+
+  /* ── Result ── */
+  .result { display: none; text-align: center; padding: 1.2rem 0 0; }
+  .result.on { display: block; }
+  .result-check {
+    width: 44px; height: 44px;
+    margin: 0 auto 0.6rem;
+    border-radius: 50%;
+    background: var(--green-tint);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .result-check svg { width: 22px; height: 22px; }
+  .result p { font-size: 0.9rem; color: var(--text-mid); margin-bottom: 0.2rem; }
+  .result .dl-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--green);
+    font-weight: 500;
+  }
+
+  /* ── Error ── */
+  .err {
+    display: none;
+    background: var(--error-bg);
+    color: var(--error-text);
+    border: 1px solid var(--error-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 0.8rem;
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+  .err.on { display: block; }
+
+  /* ── Template bar ── */
+  .tpl-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 1px 4px var(--shadow);
+  }
+  .tpl-bar .tpl-text { flex: 1; }
+  .tpl-bar h4 { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.1rem; }
+  .tpl-bar p { font-size: 0.8rem; color: var(--text-muted); }
+  .btn-tpl {
+    background: var(--orange);
+    color: #fff;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    padding: 8px 16px;
+  }
+  .btn-tpl:hover { opacity: 0.92; }
+
+  @media (max-width: 480px) {
+    .tpl-bar { flex-direction: column; text-align: center; }
+  }
+
+  /* ── Rules ── */
+  .rules-card {
+    background: var(--orange-light);
+    border-radius: 12px;
+    padding: 1.1rem 1.4rem;
+    margin-bottom: 1.2rem;
+    border-left: 3px solid var(--orange);
+  }
+  .rules-card h4 {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--orange);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .rules-card ul { list-style: none; padding: 0; margin: 0; }
+  .rules-card li {
+    font-size: 0.82rem;
+    color: var(--text-mid);
+    padding: 0.15rem 0;
+    padding-left: 1.1em;
+    position: relative;
+    line-height: 1.45;
+  }
+  .rules-card li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--orange);
+    opacity: 0.6;
+  }
+  .rules-card code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--card);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+  }
+
+  /* ── Footer ── */
+  .ftr {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  /* hidden helper */
+  input[type="file"] { display: none; }
+</style>
+
+<div class="top-stripe"><span class="ts-o"></span><span class="ts-w"></span><span class="ts-g"></span></div>
+
+<div class="page">
+
+  <div class="hdr">
+    <div class="hdr-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Ambassade du Niger
+    </div>
+    <h1>Cartes d'immatriculation</h1>
+    <p>Uploade ton Excel, recupere ton Word</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><strong>6</strong> cartes / page</div>
+    <div class="stat"><strong>A4</strong> format</div>
+    <div class="stat">Texte <strong>editable</strong></div>
+  </div>
+
+  <!-- Template -->
+  <div class="tpl-bar">
+    <div class="tpl-text">
+      <h4>Pas de fichier Excel ?</h4>
+      <p>Telecharge le modele vierge</p>
+    </div>
+    <a href="#" class="btn btn-tpl" onclick="event.preventDefault(); alert('Telechargement du template...')">Modele .xlsx</a>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-block">
+    <div class="drop" id="drop">
+      <div class="drop-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <h3 id="dropTitle">Depose ton fichier Excel ici</h3>
+      <p id="dropSub">ou clique pour selectionner (.xlsx)</p>
+      <div class="fname" id="fname" hidden></div>
+    </div>
+    <input type="file" id="fileIn" accept=".xlsx,.xls">
+
+    <div class="actions">
+      <button class="btn btn-go" id="goBtn" disabled>Generer les cartes</button>
+      <button class="btn btn-outline" id="resetBtn" hidden>Choisir un autre fichier</button>
+    </div>
+
+    <div class="prog" id="prog">
+      <div class="prog-bar"><div class="prog-fill"></div></div>
+      <p>Lecture du fichier et generation...</p>
+    </div>
+
+    <div class="result" id="result">
+      <div class="result-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <p>Document pret !</p>
+      <div class="dl-name" id="dlName">MonFichier_cartes_remplies.docx</div>
+    </div>
+
+    <div class="err" id="err"></div>
+  </div>
+
+  <!-- Rules -->
+  <div class="rules-card">
+    <h4>Regles du fichier Excel</h4>
+    <ul>
+      <li>N° d'immatriculation colle : <code>N°50187/24/ANC.</code></li>
+      <li>Adresse sans QUARTIER ni BENIN : <code>CADJEHOUN, COTONOU</code></li>
+      <li>Noms des parents : 24 caracteres max</li>
+      <li>Tout en majuscules (sauf date et taille)</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="ftr">
+  Ambassade du Niger a Cotonou &middot; Systeme de cartes d'immatriculation
+</div>
+
+<script>
+const drop = document.getElementById('drop');
+const fileIn = document.getElementById('fileIn');
+const goBtn = document.getElementById('goBtn');
+const resetBtn = document.getElementById('resetBtn');
+const prog = document.getElementById('prog');
+const result = document.getElementById('result');
+const err = document.getElementById('err');
+const dropTitle = document.getElementById('dropTitle');
+const dropSub = document.getElementById('dropSub');
+const fname = document.getElementById('fname');
+const dlName = document.getElementById('dlName');
+
+let file = null;
+
+drop.addEventListener('click', () => fileIn.click());
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.classList.remove('over');
+  if (e.dataTransfer.files.length) pick(e.dataTransfer.files[0]);
+});
+fileIn.addEventListener('change', () => { if (fileIn.files.length) pick(fileIn.files[0]); });
+
+function pick(f) {
+  if (!/\.xlsx?$/i.test(f.name)) { showErr('Le fichier doit etre au format .xlsx'); return; }
+  file = f;
+  drop.classList.add('loaded');
+  dropTitle.textContent = f.name;
+  dropSub.textContent = (f.size / 1024).toFixed(0) + ' Ko';
+  fname.hidden = true;
+  goBtn.disabled = false;
+  hideErr();
+  result.classList.remove('on');
+}
+
+goBtn.addEventListener('click', async () => {
+  if (!file) return;
+  goBtn.disabled = true;
+  goBtn.hidden = true;
+  resetBtn.hidden = true;
+  prog.classList.add('on');
+  result.classList.remove('on');
+  hideErr();
+
+  // Simulate for demo
+  await new Promise(r => setTimeout(r, 2200));
+
+  prog.classList.remove('on');
+  const outName = file.name.replace(/\.xlsx?$/i, '') + '_cartes_remplies.docx';
+  dlName.textContent = outName;
+  result.classList.add('on');
+  resetBtn.hidden = false;
+});
+
+resetBtn.addEventListener('click', () => {
+  file = null;
+  fileIn.value = '';
+  drop.classList.remove('loaded');
+  dropTitle.textContent = 'Depose ton fichier Excel ici';
+  dropSub.textContent = 'ou clique pour selectionner (.xlsx)';
+  goBtn.disabled = true;
+  goBtn.hidden = false;
+  resetBtn.hidden = true;
+  result.classList.remove('on');
+  hideErr();
+});
+
+function showErr(m) { err.textContent = m; err.classList.add('on'); }
+function hideErr() { err.classList.remove('on'); }
+</script>
