@@ -310,7 +310,7 @@ def embed_font_in_docx(docx_bytes, font_path, font_name):
     s'affiche correctement meme si le PC n'a pas la police installee.
 
     Technique : on manipule le package ZIP du .docx pour ajouter :
-    - Le fichier .ttf dans word/fonts/
+    - Le fichier .odttf obfusque dans word/fonts/
     - La declaration dans word/fontTable.xml
     - La relation dans word/_rels/fontTable.xml.rels
     - Le content type dans [Content_Types].xml
@@ -325,16 +325,13 @@ def embed_font_in_docx(docx_bytes, font_path, font_name):
         os2.panose.bArmStyle, os2.panose.bLetterForm,
         os2.panose.bMidline, os2.panose.bXHeight
     ])
-    panose_hex = panose_bytes.hex().upper()
-    # Formater: "02 0B 06 03 ..." -> "020B0603..."
-    panose_str = panose_hex
+    panose_str = panose_bytes.hex().upper()
 
     # Obfuscation de la police (Word exige un GUID + obfuscation XOR)
-    import hashlib
-    font_guid = str(uuid.uuid4()).upper()
-    # Cle d'obfuscation = 16 bytes du GUID (sans les tirets)
-    guid_hex = font_guid.replace("-", "")
-    obfuscation_key = bytes.fromhex(guid_hex)
+    font_uuid = uuid.uuid4()
+    font_guid = str(font_uuid).upper()
+    # Cle d'obfuscation = 16 bytes du UUID (representation binaire standard)
+    obfuscation_key = font_uuid.bytes
 
     # Lire le fichier ttf
     with open(font_path, "rb") as f:
@@ -362,6 +359,26 @@ def embed_font_in_docx(docx_bytes, font_path, font_name):
         if has_font_rels:
             modified_files.add('word/_rels/fontTable.xml.rels')
 
+        # Ecrire [Content_Types].xml en premier (requis par la spec OPC)
+        ct_xml = zin.read('[Content_Types].xml')
+        ct_tree = etree.fromstring(ct_xml)
+        ct_ns = "http://schemas.openxmlformats.org/package/2006/content-types"
+
+        has_odttf = False
+        for ext in ct_tree.findall(f'{{{ct_ns}}}Default'):
+            if ext.get('Extension') == 'odttf':
+                has_odttf = True
+                break
+
+        if not has_odttf:
+            default_el = etree.SubElement(ct_tree, f'{{{ct_ns}}}Default')
+            default_el.set('Extension', 'odttf')
+            default_el.set('ContentType', 'application/vnd.openxmlformats-officedocument.obfuscatedFont')
+
+        ct_out = etree.tostring(ct_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
+        zout.writestr('[Content_Types].xml', ct_out)
+
+        # Copier les fichiers existants (sauf ceux modifies)
         for item in zin.namelist():
             if item not in modified_files:
                 zout.writestr(item, zin.read(item))
@@ -386,7 +403,6 @@ def embed_font_in_docx(docx_bytes, font_path, font_name):
             font_elem = etree.SubElement(ft_tree, f'{{{w_ns}}}font')
             font_elem.set(f'{{{w_ns}}}name', font_name)
 
-        # Ajouter les infos de la police
         # Panose
         existing_panose = font_elem.find(f'{{{w_ns}}}panose1')
         if existing_panose is None:
@@ -432,43 +448,29 @@ def embed_font_in_docx(docx_bytes, font_path, font_name):
         zout.writestr('word/fontTable.xml', ft_out)
 
         # 3. Creer/modifier word/_rels/fontTable.xml.rels
+        # Construire le XML a la main pour eviter les prefixes ns0: de lxml
         if has_font_rels:
             rels_xml = zin.read('word/_rels/fontTable.xml.rels')
             rels_tree = etree.fromstring(rels_xml)
+            # Ajouter la relation
+            rels_ns_str = "http://schemas.openxmlformats.org/package/2006/relationships"
+            rel_el = etree.SubElement(rels_tree, f'{{{rels_ns_str}}}Relationship')
+            rel_el.set('Id', 'rIdFont1')
+            rel_el.set('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/font')
+            rel_el.set('Target', f'fonts/{odttf_name}')
+            rels_out = etree.tostring(rels_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
         else:
-            rels_ns = "http://schemas.openxmlformats.org/package/2006/relationships"
-            rels_tree = etree.Element(f'{{{rels_ns}}}Relationships')
-            rels_tree.set('xmlns', rels_ns)
+            # Ecrire le XML directement pour eviter le prefixe ns0:
+            rels_out = (
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                f'<Relationship Id="rIdFont1" '
+                f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" '
+                f'Target="fonts/{odttf_name}"/>'
+                '</Relationships>'
+            ).encode('UTF-8')
 
-        # Ajouter la relation vers le fichier police
-        rels_ns_str = "http://schemas.openxmlformats.org/package/2006/relationships"
-        rel_el = etree.SubElement(rels_tree, f'{{{rels_ns_str}}}Relationship')
-        rel_el.set('Id', 'rIdFont1')
-        rel_el.set('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/font')
-        rel_el.set('Target', f'fonts/{odttf_name}')
-
-        rels_out = etree.tostring(rels_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
         zout.writestr('word/_rels/fontTable.xml.rels', rels_out)
-
-        # 4. Modifier [Content_Types].xml pour ajouter le type odttf
-        ct_xml = zin.read('[Content_Types].xml')
-        ct_tree = etree.fromstring(ct_xml)
-        ct_ns = "http://schemas.openxmlformats.org/package/2006/content-types"
-
-        # Verifier si l'extension odttf est deja declaree
-        has_odttf = False
-        for ext in ct_tree.findall(f'{{{ct_ns}}}Default'):
-            if ext.get('Extension') == 'odttf':
-                has_odttf = True
-                break
-
-        if not has_odttf:
-            default_el = etree.SubElement(ct_tree, f'{{{ct_ns}}}Default')
-            default_el.set('Extension', 'odttf')
-            default_el.set('ContentType', 'application/vnd.openxmlformats-officedocument.obfuscatedFont')
-
-        ct_out = etree.tostring(ct_tree, xml_declaration=True, encoding='UTF-8', standalone=True)
-        zout.writestr('[Content_Types].xml', ct_out)
 
     dst.seek(0)
     return dst.getvalue()
