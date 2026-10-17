@@ -1,15 +1,11 @@
 """
 Appli web - Cartes d'Immatriculation Ambassade du Niger a Cotonou
-Flask + generation Word en ligne
+Flask + generation Word (.docx) et PDF en ligne
 """
 
 import os
-import math
-import uuid
-import time
-import threading
-import tempfile
 from copy import deepcopy
+from datetime import datetime, date
 from io import BytesIO
 
 from flask import Flask, request, send_file, jsonify, render_template
@@ -20,62 +16,88 @@ from docx.shared import Cm, Pt
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from lxml import etree
+from reportlab.lib.colors import HexColor
+from reportlab.lib.units import cm as CM
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas as pdf_canvas
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max upload
 
-# Dossier temporaire pour les fichiers generés
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_files")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Image de fond incluse dans l'app
-BG_IMAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "carte_fond.png")
+BG_IMAGE = os.path.join(BASE_DIR, "static", "carte_fond.png")
 
 # Police Kingthings Trypewriter 2
-FONT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "KingthingsTrypewriter2.ttf")
+FONT_FILE = os.path.join(BASE_DIR, "static", "KingthingsTrypewriter2.ttf")
 
 # ── Configuration des cartes ──────────────────────────────────────────────────
 
-FONT_NAME         = "Kingthings Trypewriter 2"
-FONT_SIZE_PT      = 14
-FONT_SIZE_HALF_PT = FONT_SIZE_PT * 2
+FONT_NAME     = "Kingthings Trypewriter 2"   # nom de la police dans le Word
+PDF_FONT_NAME = "KingthingsTrypewriter2"     # nom enregistre pour le PDF
+FONT_SIZE_PT  = 14
 
 IMG_W_PX = 1138
 IMG_H_PX = 744
 
-CARD_W_CM = 11.7
-CARD_H_CM = 7.34
+CARD_W_NOM_CM = 11.7
+CARD_H_NOM_CM = 7.34
 
 PAGE_W_CM = 21.0
 PAGE_H_CM = 29.7
+
+# Une imprimante ne peut pas imprimer jusqu'au bord de la feuille.
+# Les cartes sont reduites si besoin pour que la colonne de 4 cartes
+# tienne dans la zone imprimable (marge minimale SAFE_MARGIN_CM).
+SAFE_MARGIN_CM = 0.8
+# Ecart identique entre toutes les cartes (entre elles, et entre les deux colonnes)
+CARD_GAP_CM = 0.3
 
 CARDS_PER_PAGE = 6
 LEFT_COUNT  = 4
 RIGHT_COUNT = 2
 
-LEFT_X     = 0.3
-LEFT_GAP   = 0.0
-LEFT_TOP_1 = 0.2
-LEFT_TOPS  = [LEFT_TOP_1 + i * (CARD_H_CM + LEFT_GAP) for i in range(LEFT_COUNT)]
+# Taille des cartes : la colonne de 4 cartes + 3 ecarts doit tenir dans la hauteur
+# en laissant au moins SAFE_MARGIN_CM en haut et en bas.
+CARD_SCALE = min(1.0, (PAGE_H_CM - 2 * SAFE_MARGIN_CM - (LEFT_COUNT - 1) * CARD_GAP_CM)
+                 / (LEFT_COUNT * CARD_H_NOM_CM))
 
-RIGHT_X     = LEFT_X + CARD_W_CM + 0.15
-RIGHT_GAP   = 0.2
-RIGHT_TOP_1 = 0.3
-RIGHT_TOPS  = [RIGHT_TOP_1 + i * (CARD_W_CM + RIGHT_GAP) for i in range(RIGHT_COUNT)]
+CARD_W_CM = CARD_W_NOM_CM * CARD_SCALE
+CARD_H_CM = CARD_H_NOM_CM * CARD_SCALE
+FONT_SIZE_EFF_PT  = FONT_SIZE_PT * CARD_SCALE
+FONT_SIZE_HALF_PT = round(FONT_SIZE_EFF_PT * 2)
+
+# Marges egales haut/bas et gauche/droite : la grille est centree sur la page
+TOP_MARGIN_CM = (PAGE_H_CM - (LEFT_COUNT * CARD_H_CM + (LEFT_COUNT - 1) * CARD_GAP_CM)) / 2
+SIDE_MARGIN_CM = (PAGE_W_CM - (CARD_W_CM + CARD_GAP_CM + CARD_H_CM)) / 2
+
+# Colonne gauche : 4 cartes horizontales
+LEFT_X    = SIDE_MARGIN_CM
+LEFT_TOPS = [TOP_MARGIN_CM + i * (CARD_H_CM + CARD_GAP_CM) for i in range(LEFT_COUNT)]
+
+# Colonne droite : 2 cartes tournees, alignees sur le haut de la colonne gauche
+RIGHT_X    = LEFT_X + CARD_W_CM + CARD_GAP_CM
+RIGHT_TOPS = [TOP_MARGIN_CM + i * (CARD_W_CM + CARD_GAP_CM) for i in range(RIGHT_COUNT)]
 
 TEXT_COLOR = "0D0D0D"
 
+# Positions (x, y) en px de l'image de fond 1138x744.
+# y est decale de +23 px par rapport aux premieres mesures : les valeurs
+# etaient environ une demi-ligne au-dessus des libelles imprimes.
 FIELDS = [
     ("N_ID",         8,   12),
-    ("Nom",        150,  243),
-    ("Prenoms",    195,  283),
-    ("Fil_de",     225,  325),
-    ("Et_de",      170,  367),
-    ("Date",       380,  409),
-    ("Lieu",       370,  449),
-    ("Profession", 255,  491),
-    ("Taille",     180,  531),
-    ("Adresse",    215,  573),
+    ("Nom",        150,  266),
+    ("Prenoms",    195,  306),
+    ("Fil_de",     225,  348),
+    ("Et_de",      170,  390),
+    ("Date",       380,  432),
+    ("Lieu",       370,  472),
+    ("Profession", 255,  514),
+    ("Taille",     180,  554),
+    ("Adresse",    215,  596),
 ]
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -83,6 +105,11 @@ V_NS = "urn:schemas-microsoft-com:vml"
 O_NS = "urn:schemas-microsoft-com:office:office"
 
 EMU_PER_CM = 360000
+
+# Ratio de la hauteur du texte au-dessus de la ligne de base (police Kingthings)
+PDF_TEXT_ASCENT = 0.85
+
+pdfmetrics.registerFont(TTFont(PDF_FONT_NAME, FONT_FILE))
 
 
 # ── Fonctions utilitaires ────────────────────────────────────────────────────
@@ -99,7 +126,6 @@ def px_to_cm_y(px):
 
 def _format_date(val):
     """Formate une date Excel en JJ/MM/AAAA (gere datetime et texte)."""
-    from datetime import datetime, date
     if isinstance(val, (datetime, date)):
         return val.strftime("%d/%m/%Y")
     s = str(val).strip()
@@ -320,73 +346,75 @@ def make_vml_textbox_run_rotated(text, target_x, target_y,
     return etree.fromstring(xml)
 
 
-def generer_cartes(excel_file):
-    """Genere le document Word a partir du fichier Excel uploade."""
-    # Preparer les images de fond
+# ── Images et pagination ─────────────────────────────────────────────────────
+
+def preparer_images():
+    """Retourne l'image de la carte et sa version tournee de 90 degres."""
     bg = PILImage.open(BG_IMAGE)
     card_img = bg.crop((0, 0, IMG_W_PX, IMG_H_PX))
+    card_rot_img = card_img.rotate(90, expand=True)
+    return card_img, card_rot_img
 
-    # Sauvegarder temporairement
-    job_id = str(uuid.uuid4())[:8]
-    card_path = os.path.join(UPLOAD_DIR, f"_carte_{job_id}.png")
-    card_rot_path = os.path.join(UPLOAD_DIR, f"_carte_rot_{job_id}.png")
 
-    card_img.save(card_path, "PNG")
-    card_rotated = card_img.rotate(90, expand=True)
-    card_rotated.save(card_rot_path, "PNG")
+def _png_bytes(img):
+    buf = BytesIO()
+    img.save(buf, "PNG")
+    buf.seek(0)
+    return buf
 
-    # Lire les donnees
-    persons = lire_excel(excel_file)
-    if not persons:
-        raise ValueError("Aucune personne trouvee dans le fichier Excel.")
 
-    # Creer le document Word
+def _decouper_pages(persons):
+    """Decoupe la liste des personnes en pages de CARDS_PER_PAGE cartes."""
+    return [persons[i:i + CARDS_PER_PAGE]
+            for i in range(0, len(persons), CARDS_PER_PAGE)]
+
+
+# ── Generation Word (.docx) ──────────────────────────────────────────────────
+
+def _drawing_template(doc, png_buffer):
+    """Insere l'image une fois pour recuperer son XML de dessin, puis la retire."""
+    para = doc.add_paragraph()
+    run = para.add_run()
+    run.add_picture(png_buffer)
+    drawing = deepcopy(run._r.find(qn("w:drawing")))
+    doc._body._body.remove(para._p)
+    return drawing
+
+
+def generer_docx(persons, card_img, card_rot_img):
+    """Genere le document Word (une page A4 par groupe de 6 cartes)."""
     doc = Document()
 
     section = doc.sections[0]
     section.page_width    = Cm(PAGE_W_CM)
     section.page_height   = Cm(PAGE_H_CM)
-    section.left_margin   = Cm(0.5)
-    section.right_margin  = Cm(0.5)
-    section.top_margin    = Cm(0.5)
-    section.bottom_margin = Cm(0.5)
+    section.left_margin   = Cm(SAFE_MARGIN_CM)
+    section.right_margin  = Cm(SAFE_MARGIN_CM)
+    section.top_margin    = Cm(SAFE_MARGIN_CM)
+    section.bottom_margin = Cm(SAFE_MARGIN_CM)
 
     style = doc.styles["Normal"]
     style.paragraph_format.space_before = Pt(0)
     style.paragraph_format.space_after  = Pt(0)
 
-    # Enregistrer les templates d'image
-    temp_para = doc.add_paragraph()
-    temp_run  = temp_para.add_run()
-    temp_run.add_picture(card_path)
-    drawing_tmpl_normal = deepcopy(temp_run._r.find(qn("w:drawing")))
-    doc._body._body.remove(temp_para._p)
-
-    temp_para2 = doc.add_paragraph()
-    temp_run2  = temp_para2.add_run()
-    temp_run2.add_picture(card_rot_path)
-    drawing_tmpl_rotated = deepcopy(temp_run2._r.find(qn("w:drawing")))
-    doc._body._body.remove(temp_para2._p)
+    drawing_tmpl_normal  = _drawing_template(doc, _png_bytes(card_img))
+    drawing_tmpl_rotated = _drawing_template(doc, _png_bytes(card_rot_img))
 
     normal_w_emu  = cm_emu(CARD_W_CM)
     normal_h_emu  = cm_emu(CARD_H_CM)
     rotated_w_emu = cm_emu(CARD_H_CM)
     rotated_h_emu = cm_emu(CARD_W_CM)
 
-    pages_needed = math.ceil(len(persons) / CARDS_PER_PAGE)
+    pages = _decouper_pages(persons)
     dp_id    = 100
     shape_id = 1
 
-    for page_idx in range(pages_needed):
+    for page_idx, page_persons in enumerate(pages):
         para = doc.add_paragraph()
         para.paragraph_format.space_before = Pt(0)
         para.paragraph_format.space_after  = Pt(0)
 
-        start = page_idx * CARDS_PER_PAGE
-        page_persons = persons[start : start + CARDS_PER_PAGE]
-
-        left_persons = page_persons[:LEFT_COUNT]
-        for slot, person in enumerate(left_persons):
+        for slot, person in enumerate(page_persons[:LEFT_COUNT]):
             card_left = LEFT_X
             card_top  = LEFT_TOPS[slot]
 
@@ -409,8 +437,7 @@ def generer_cartes(excel_file):
                 shape_id += 1
                 para._p.append(tb)
 
-        right_persons = page_persons[LEFT_COUNT:]
-        for slot, person in enumerate(right_persons):
+        for slot, person in enumerate(page_persons[LEFT_COUNT:]):
             card_left = RIGHT_X
             card_top  = RIGHT_TOPS[slot]
 
@@ -428,14 +455,12 @@ def generer_cartes(excel_file):
                     continue
                 rot_x = fy * CARD_H_CM / IMG_H_PX
                 rot_y = (IMG_W_PX - fx) * CARD_W_CM / IMG_W_PX
-                abs_x = card_left + rot_x
-                abs_y = card_top + rot_y
-                tb = make_vml_textbox_run_rotated(val, abs_x, abs_y,
-                                                   FONT_NAME, FONT_SIZE_HALF_PT, shape_id)
+                tb = make_vml_textbox_run_rotated(val, card_left + rot_x, card_top + rot_y,
+                                                  FONT_NAME, FONT_SIZE_HALF_PT, shape_id)
                 shape_id += 1
                 para._p.append(tb)
 
-        if page_idx < pages_needed - 1:
+        if page_idx < len(pages) - 1:
             bp = doc.add_paragraph()
             bp.paragraph_format.space_before = Pt(0)
             bp.paragraph_format.space_after  = Pt(0)
@@ -443,39 +468,85 @@ def generer_cartes(excel_file):
             br.set(qn("w:type"), "page")
             bp.add_run()._r.append(br)
 
-    # Sauvegarder dans un buffer
     result = BytesIO()
     doc.save(result)
     result.seek(0)
-
-    # Nettoyage des fichiers temporaires
-    for tmp in (card_path, card_rot_path):
-        if os.path.exists(tmp):
-            os.remove(tmp)
-
-    return result, len(persons), pages_needed
+    return result
 
 
-# ── Nettoyage automatique des fichiers temporaires ───────────────────────────
+# ── Generation PDF ───────────────────────────────────────────────────────────
 
-def cleanup_old_files():
-    """Supprime les fichiers temporaires de plus d'une heure."""
-    while True:
-        time.sleep(3600)
-        try:
-            now = time.time()
-            for f in os.listdir(UPLOAD_DIR):
-                path = os.path.join(UPLOAD_DIR, f)
-                if os.path.isfile(path) and now - os.path.getmtime(path) > 3600:
-                    os.remove(path)
-        except Exception:
-            pass
+def _pdf_y(y_cm_from_top):
+    """Convertit une coordonnee verticale (cm depuis le haut) en points PDF."""
+    return (PAGE_H_CM - y_cm_from_top) * CM
 
-cleanup_thread = threading.Thread(target=cleanup_old_files, daemon=True)
-cleanup_thread.start()
+
+def _dessiner_texte_pdf(pdf, texte, x_cm, y_cm, tourne):
+    """Ecrit un champ. Coordonnees en cm depuis le haut-gauche de la page."""
+    taille = FONT_SIZE_EFF_PT
+    pdf.setFont(PDF_FONT_NAME, taille)
+    pdf.setFillColor(HexColor("#" + TEXT_COLOR))
+    if tourne:
+        # Texte lu de bas en haut : le point d'ancrage est le bas de la zone
+        pdf.saveState()
+        pdf.translate(x_cm * CM + taille * PDF_TEXT_ASCENT, _pdf_y(y_cm))
+        pdf.rotate(90)
+        pdf.drawString(0, 0, texte)
+        pdf.restoreState()
+    else:
+        pdf.drawString(x_cm * CM, _pdf_y(y_cm) - taille * PDF_TEXT_ASCENT, texte)
+
+
+def _dessiner_page_pdf(pdf, page_persons, carte, carte_tournee):
+    for slot, person in enumerate(page_persons[:LEFT_COUNT]):
+        top = LEFT_TOPS[slot]
+        pdf.drawImage(carte, LEFT_X * CM, _pdf_y(top + CARD_H_CM),
+                      CARD_W_CM * CM, CARD_H_CM * CM)
+        for fname, fx, fy in FIELDS:
+            val = person.get(fname, "")
+            if val:
+                _dessiner_texte_pdf(pdf, val, LEFT_X + px_to_cm_x(fx),
+                                    top + px_to_cm_y(fy), tourne=False)
+
+    for slot, person in enumerate(page_persons[LEFT_COUNT:]):
+        top = RIGHT_TOPS[slot]
+        pdf.drawImage(carte_tournee, RIGHT_X * CM, _pdf_y(top + CARD_W_CM),
+                      CARD_H_CM * CM, CARD_W_CM * CM)
+        for fname, fx, fy in FIELDS:
+            val = person.get(fname, "")
+            if val:
+                abs_x = RIGHT_X + fy * CARD_H_CM / IMG_H_PX
+                abs_y = top + (IMG_W_PX - fx) * CARD_W_CM / IMG_W_PX
+                _dessiner_texte_pdf(pdf, val, abs_x, abs_y, tourne=True)
+
+
+def generer_pdf(persons, card_img, card_rot_img):
+    """Genere le PDF (memes positions que le Word)."""
+    buf = BytesIO()
+    pdf = pdf_canvas.Canvas(buf, pagesize=(PAGE_W_CM * CM, PAGE_H_CM * CM))
+    pdf.setTitle("Cartes d'immatriculation")
+
+    carte = ImageReader(card_img)
+    carte_tournee = ImageReader(card_rot_img)
+
+    for page_persons in _decouper_pages(persons):
+        _dessiner_page_pdf(pdf, page_persons, carte, carte_tournee)
+        pdf.showPage()
+
+    pdf.save()
+    buf.seek(0)
+    return buf
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
+GENERATEURS = {"docx": generer_docx, "pdf": generer_pdf}
+
+MIMETYPES = {
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
+
 
 @app.route("/")
 def index():
@@ -494,40 +565,37 @@ def generate():
     if not file.filename.lower().endswith((".xlsx", ".xls")):
         return jsonify({"error": "Le fichier doit etre un Excel (.xlsx)"}), 400
 
+    fmt = request.args.get("format", "docx")
+    if fmt not in GENERATEURS:
+        return jsonify({"error": "Format demande inconnu"}), 400
+
     try:
-        # Sauvegarder temporairement le fichier uploade
-        temp_path = os.path.join(UPLOAD_DIR, f"upload_{uuid.uuid4().hex[:8]}.xlsx")
-        file.save(temp_path)
+        persons = lire_excel(BytesIO(file.read()))
+        if not persons:
+            raise ValueError("Aucune personne trouvee dans le fichier Excel.")
 
-        # Generer les cartes
-        output, nb_persons, nb_pages = generer_cartes(temp_path)
-
-        # Supprimer le fichier uploade
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-        # Nom du fichier de sortie
-        original_name = os.path.splitext(file.filename)[0]
-        output_name = f"{original_name}_cartes_remplies.docx"
-
-        return send_file(
-            output,
-            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            as_attachment=True,
-            download_name=output_name,
-        )
+        card_img, card_rot_img = preparer_images()
+        output = GENERATEURS[fmt](persons, card_img, card_rot_img)
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
+        app.logger.exception("Echec de la generation %s", fmt)
         return jsonify({"error": f"Erreur lors de la generation : {str(e)}"}), 500
+
+    original_name = os.path.splitext(file.filename)[0]
+    return send_file(
+        output,
+        mimetype=MIMETYPES[fmt],
+        as_attachment=True,
+        download_name=f"{original_name}_cartes_remplies.{fmt}",
+    )
 
 
 @app.route("/api/template")
 def download_template():
     """Telecharger le template Excel vierge."""
-    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  "static", "Template_Immatriculation_Niger.xlsx")
+    template_path = os.path.join(BASE_DIR, "static", "Template_Immatriculation_Niger.xlsx")
     if os.path.exists(template_path):
         return send_file(template_path, as_attachment=True,
                          download_name="Template_Immatriculation_Niger.xlsx")

@@ -1105,6 +1105,42 @@ function handleFile(file) {
 }
 
 // ── Generate ──
+const OUTPUT_FORMATS = ['docx', 'pdf'];
+
+async function downloadFormat(fmt) {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    const response = await fetch('/api/generate?format=' + fmt, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erreur inconnue");
+    }
+
+    // Nom du fichier : celui envoye par le serveur dans le header
+    let downloadName = selectedFile.name.replace(/\.xlsx?$/i, '') + '_cartes_remplies.' + fmt;
+    const disposition = response.headers.get('Content-Disposition');
+    if (disposition) {
+        const match = disposition.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+        if (match) downloadName = decodeURIComponent(match[1].replace(/"/g, ''));
+    }
+
+    const url = URL.createObjectURL(await response.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    return downloadName;
+}
+
 generateBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
 
@@ -1115,46 +1151,19 @@ generateBtn.addEventListener('click', async () => {
     resultSection.classList.remove('active');
     hideError();
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
     try {
-        const response = await fetch('/api/generate', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || "Erreur inconnue");
+        // Word puis PDF, a partir du meme fichier Excel
+        const downloadedNames = [];
+        for (const fmt of OUTPUT_FORMATS) {
+            downloadedNames.push(await downloadFormat(fmt));
         }
-
-        // Telecharger le fichier
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-
-        // Extraire le nom du fichier du header
-        const disposition = response.headers.get('Content-Disposition');
-        let downloadName = selectedFile.name.replace(/\.xlsx?$/i, '') + '_cartes_remplies.docx';
-        if (disposition) {
-            const match = disposition.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
-            if (match) downloadName = decodeURIComponent(match[1].replace(/"/g, ''));
-        }
-
-        a.href = url;
-        a.download = downloadName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
 
         // Afficher le succes
         progressSection.classList.remove('active');
         resultSection.classList.add('active');
-        resultInfo.innerHTML =
-            'Document <strong>' + downloadName + '</strong> telecharge !<br>' +
-            'Ouvre-le avec <strong>Word</strong> (pas OneDrive).';
+        resultInfo.textContent =
+            'Fichiers telecharges : ' + downloadedNames.join(' et ') + '. ' +
+            'Ouvre le Word avec Word (pas OneDrive).';
         resetBtn.hidden = false;
 
     } catch (err) {
